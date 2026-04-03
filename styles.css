@@ -1,0 +1,362 @@
+:root {
+  --background: #f5f0e8;
+  --foreground: #1f2430;
+  --muted: #6d727f;
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-strong: rgba(255, 255, 255, 0.92);
+  --border: rgba(31, 36, 48, 0.1);
+  --accent: #d1693f;
+  --accent-2: #2f6b56;
+  --shadow: 0 20px 60px rgba(44, 37, 27, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  color: var(--foreground);
+  background:
+    radial-gradient(circle at top left, rgba(209, 105, 63, 0.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(47, 107, 86, 0.18), transparent 26%),
+    linear-gradient(180deg, #f6f1e8 0%, #efe7da 100%);
+}
+
+.page-shell {
+  width: min(1200px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 24px 0 72px;
+}
+
+.site-header,
+.hero,
+.controls,
+.featured-section,
+.directory-section {
+  background: var(--surface);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+}
+
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  margin-bottom: 20px;
+}
+
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--accent), #efb08f);
+  color: white;
+  font-weight: 700;
+}
+
+.brand-name {
+  font-weight: 700;
+}
+
+.brand-subtitle,
+.results-count,
+.section-heading p,
+.tool-description,
+.tool-metrics,
+.stat-footnote,
+.hero p,
+.controls-top p {
+  color: var(--muted);
+}
+
+.header-link,
+.button,
+.tool-link {
+  text-decoration: none;
+}
+
+.header-link {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.4fr 0.9fr;
+  gap: 28px;
+  padding: 34px;
+  margin-bottom: 20px;
+}
+
+.hero-badge,
+.tool-category,
+.tool-pricing,
+.metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 12px;
+}
+
+.hero-badge,
+.tool-category {
+  background: rgba(209, 105, 63, 0.12);
+  color: #9b4f30;
+}
+
+.hero h1,
+.section-heading h2,
+.controls-top h2 {
+  margin: 12px 0;
+  font-family: "Instrument Serif", serif;
+  font-weight: 400;
+  line-height: 0.98;
+}
+
+.hero h1 {
+  font-size: clamp(3rem, 7vw, 5.6rem);
+}
+
+.hero h1 span {
+  font-style: italic;
+}
+
+.hero p {
+  max-width: 640px;
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.button-primary {
+  background: var(--foreground);
+  color: white;
+}
+
+.button-secondary {
+  background: var(--surface-strong);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+}
+
+.hero-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.stat-card {
+  padding: 22px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--border);
+}
+
+.stat-card-accent {
+  background: linear-gradient(135deg, rgba(47, 107, 86, 0.9), rgba(33, 53, 63, 0.92));
+  color: white;
+}
+
+.stat-card-accent .stat-footnote {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.stat-label {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.stat-value {
+  margin-top: 8px;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.controls,
+.featured-section,
+.directory-section {
+  padding: 28px;
+  margin-top: 20px;
+}
+
+.controls-top,
+.controls-row {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.controls-row {
+  margin-top: 18px;
+  align-items: stretch;
+}
+
+.search-field,
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.search-field input,
+.filter-field select {
+  width: 100%;
+  min-height: 52px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.92);
+  padding: 0 16px;
+  font: inherit;
+  color: var(--foreground);
+}
+
+.section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.featured-grid,
+.tool-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.featured-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tool-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tool-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 240px;
+  padding: 20px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid var(--border);
+}
+
+.tool-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tool-name {
+  margin: 10px 0 0;
+  font-size: 1.2rem;
+  line-height: 1.2;
+}
+
+.tool-pricing {
+  align-self: flex-start;
+  background: rgba(47, 107, 86, 0.12);
+  color: var(--accent-2);
+}
+
+.tool-description {
+  flex: 1;
+  margin: 0;
+  line-height: 1.65;
+}
+
+.tool-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.metric {
+  background: rgba(31, 36, 48, 0.06);
+}
+
+.tool-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 14px;
+  background: var(--foreground);
+  color: white;
+  font-weight: 600;
+}
+
+@media (max-width: 980px) {
+  .hero,
+  .featured-grid,
+  .tool-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .page-shell {
+    width: min(100% - 20px, 1200px);
+  }
+
+  .site-header,
+  .controls-top,
+  .controls-row,
+  .section-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero {
+    padding: 24px;
+  }
+
+  .controls,
+  .featured-section,
+  .directory-section {
+    padding: 22px;
+  }
+}
