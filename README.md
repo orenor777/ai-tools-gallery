@@ -2,6 +2,12 @@
 
 Static AI tools directory generated from the local TAAFT scrape dataset.
 
+The generator creates:
+
+- `index.html` with the full 500-tool directory
+- `categories/*.html` static category pages
+- `tools/*.html` static tool detail pages
+
 ## Data source
 
 - `/root/data/scraperli/taaft.results.jsonl`

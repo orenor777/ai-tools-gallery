@@ -12,6 +12,8 @@ from urllib.parse import urlparse
 
 ROOT = Path("/root/src/chrome-gpt-backend/big_websites_massive/website/sites/ai-tools-gallery")
 OUTPUT_HTML = ROOT / "index.html"
+CATEGORIES_DIR = ROOT / "categories"
+TOOLS_DIR = ROOT / "tools"
 PRIMARY = Path("/root/data/scraperli/taaft.results.jsonl")
 SECONDARY = Path("/root/data/scraperli/alphabetical_results.jsonlines")
 MAX_TOOLS = 500
@@ -54,6 +56,14 @@ def normalize_text(value: str | None) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
 
+def esc(value: str) -> str:
+    return html.escape(value, quote=True)
+
+
+def slugify(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-") or "item"
+
+
 def category_from_task(task: str) -> str:
     task = normalize_text(task)
     if not task:
@@ -72,9 +82,15 @@ def external_domain(url: str) -> str:
         return ""
 
 
-def make_slug(name: str, index: int) -> str:
-    base = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
-    return f"{base or 'tool'}-{index}"
+def clean_image_src(value: str | None) -> str:
+    image = normalize_text(value)
+    if image.startswith("//"):
+        return f"https:{image}"
+    return image
+
+
+def make_tool_slug(name: str, index: int) -> str:
+    return f"{slugify(name)}-{index}"
 
 
 def load_primary_records() -> dict[str, dict]:
@@ -97,7 +113,7 @@ def load_primary_records() -> dict[str, dict]:
                 "description": description,
                 "external_url": external_url,
                 "source_page": normalize_text(row.get("data_url")),
-                "image_src": normalize_text(row.get("image_src")),
+                "image_src": clean_image_src(row.get("image_src")),
             }
     return records
 
@@ -131,11 +147,10 @@ def merge_secondary(records: dict[str, dict]) -> None:
                 item["category"] = task
             if row.get("pricing") and not item.get("pricing"):
                 item["pricing"] = normalize_text(row.get("pricing"))
+            if not item.get("image_src"):
+                item["image_src"] = clean_image_src(row.get("image_src"))
             if isinstance(stats, dict):
-                saves = stats.get("saves")
                 conversations = stats.get("conversations")
-                if saves is not None:
-                    item["saves"] = saves
                 if conversations is not None:
                     item["conversations"] = conversations
 
@@ -150,23 +165,27 @@ def materialize_tools() -> list[dict]:
     tools: list[dict] = []
     for index, item in enumerate(selected, start=1):
         category = normalize_text(item.get("category")) or random.choice(FALLBACK_CATEGORIES)
+        category_slug = slugify(category)
         pricing = normalize_text(item.get("pricing")) or random.choice(["Free", "Freemium", "Paid", "Contact for pricing"])
         description = normalize_text(item.get("description")) or f"{item['name']} is an AI tool in the {category} category."
+        tagline = description[:140].rstrip(" .,;:")
         url = item["external_url"]
         domain = external_domain(url)
+        tool_slug = make_tool_slug(item["name"], index)
         tools.append(
             {
                 "id": index,
-                "slug": make_slug(item["name"], index),
+                "slug": tool_slug,
                 "name": item["name"],
-                "tagline": description[:140],
+                "tagline": tagline,
                 "description": description,
                 "category": category,
+                "category_slug": category_slug,
                 "pricing": pricing,
                 "url": url,
                 "domain": domain,
                 "source_page": item.get("source_page") or "",
-                "saves": int(item.get("saves") or 0),
+                "image_src": item.get("image_src") or "",
                 "conversations": int(item.get("conversations") or 0),
                 "featured": index <= 12,
             }
@@ -174,17 +193,51 @@ def materialize_tools() -> list[dict]:
     return tools
 
 
-def format_metric(label: str, value: int) -> str:
-    if not value:
-        return "Dataset pick"
-    return f"{label}: {value:,}"
+def page_frame(*, title: str, description: str, stylesheet_href: str, app_href: str | None, body: str) -> str:
+    script_tag = f'\n    <script src="{app_href}" type="module"></script>' if app_href else ""
+    return f"""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{esc(title)}</title>
+    <meta name="description" content="{esc(description)}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{stylesheet_href}" />
+  </head>
+  <body>
+{body}{script_tag}
+  </body>
+</html>
+"""
 
 
-def esc(value: str) -> str:
-    return html.escape(value, quote=True)
+def render_header(home_href: str, browse_href: str) -> str:
+    return f"""
+      <header class="site-header">
+        <a class="brand-lockup brand-link" href="{home_href}">
+          <div class="brand-mark">A</div>
+          <div>
+            <div class="brand-name">AI Tools Gallery</div>
+            <div class="brand-subtitle">Static directory seeded from the local TAAFT scrape</div>
+          </div>
+        </a>
+        <a class="header-link" href="{browse_href}">Browse directory</a>
+      </header>""".strip()
 
 
-def render_card(tool: dict) -> str:
+def render_card(tool: dict, *, detail_prefix: str = ".", category_prefix: str = ".", compact: bool = False) -> str:
+    detail_href = f"{detail_prefix}/tools/{tool['slug']}.html" if detail_prefix else f"tools/{tool['slug']}.html"
+    category_href = (
+        f"{category_prefix}/categories/{tool['category_slug']}.html"
+        if category_prefix
+        else f"categories/{tool['category_slug']}.html"
+    )
     search_blob = " ".join(
         [
             tool["name"],
@@ -194,68 +247,46 @@ def render_card(tool: dict) -> str:
             tool["description"],
         ]
     ).lower()
+    summary = tool["tagline"] or tool["description"]
     return f"""
-          <article
-            class="tool-card"
-            data-category="{esc(tool['category'])}"
-            data-search="{esc(search_blob)}"
-          >
+          <article class="tool-card" data-category="{esc(tool['category'])}" data-search="{esc(search_blob)}">
             <div class="tool-card-top">
               <div>
-                <div class="tool-category">{esc(tool['category'])}</div>
-                <h3 class="tool-name">{esc(tool['name'])}</h3>
+                <a class="tool-category category-link" href="{category_href}">{esc(tool['category'])}</a>
+                <h3 class="tool-name"><a class="tool-name-link" href="{detail_href}">{esc(tool['name'])}</a></h3>
               </div>
               <div class="tool-pricing">{esc(tool['pricing'])}</div>
             </div>
-            <p class="tool-description">{esc(tool['tagline'] or tool['description'])}</p>
+            <p class="tool-description">{esc(summary)}</p>
             <div class="tool-metrics">
-              <span class="metric saves">{esc(format_metric('Saves', tool['saves']))}</span>
               <span class="metric domain">{esc(tool['domain'] or 'Unknown domain')}</span>
             </div>
             <div class="tool-actions">
+              <a class="tool-link tool-link-secondary" href="{detail_href}">View details</a>
               <a class="tool-link" href="{esc(tool['url'])}" target="_blank" rel="noreferrer">Visit tool</a>
             </div>
           </article>""".strip()
 
 
-def render_page(tools: list[dict]) -> str:
+def render_category_pills(categories: list[str], *, current: str | None, prefix: str) -> str:
+    pills = []
+    for category in categories:
+        slug = slugify(category)
+        href = f"{prefix}/categories/{slug}.html" if prefix else f"categories/{slug}.html"
+        active = " category-pill-active" if current == category else ""
+        pills.append(f'<a class="category-pill{active}" href="{href}">{esc(category)}</a>')
+    return "\n".join(pills)
+
+
+def render_index_page(tools: list[dict]) -> str:
     categories = sorted({tool["category"] for tool in tools if tool["category"]})
     featured = "\n".join(render_card(tool) for tool in tools[:6])
     cards = "\n".join(render_card(tool) for tool in tools)
-    options = "\n".join(
-        f'                <option value="{esc(category)}">{esc(category)}</option>' for category in categories
-    )
-    return f"""<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Tools Gallery</title>
-    <meta
-      name="description"
-      content="Browse 500 AI utilities from the local TAAFT dataset across writing, coding, research, image, automation, and more."
-    />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="./styles.css" />
-  </head>
-  <body>
+    options = "\n".join(f'                <option value="{esc(category)}">{esc(category)}</option>' for category in categories)
+    category_pills = render_category_pills(categories, current=None, prefix=".")
+    body = f"""
     <div class="page-shell">
-      <header class="site-header">
-        <div class="brand-lockup">
-          <div class="brand-mark">A</div>
-          <div>
-            <div class="brand-name">AI Tools Gallery</div>
-            <div class="brand-subtitle">Static directory seeded from the local TAAFT scrape</div>
-          </div>
-        </div>
-        <a class="header-link" href="#directory">Browse directory</a>
-      </header>
-
+      {render_header("./index.html", "#directory")}
       <main>
         <section class="hero">
           <div class="hero-copy">
@@ -266,23 +297,23 @@ def render_page(tools: list[dict]) -> str:
               built from local scrape data.
             </h1>
             <p>
-              This demo turns the existing TAAFT parsing pipeline into a static website with the tool cards rendered
-              directly into the page for search engines and lightweight hosting.
+              This demo turns the existing TAAFT parsing pipeline into a static website with dedicated pages for tools
+              and categories while keeping the whole experience static and crawler-friendly.
             </p>
             <div class="hero-actions">
               <a class="button button-primary" href="#directory">Explore tools</a>
-              <a class="button button-secondary" href="#stats">View stats</a>
+              <a class="button button-secondary" href="#categories">Browse categories</a>
             </div>
           </div>
           <div class="hero-panel" id="stats">
             <div class="stat-card">
               <div class="stat-label">Seed size</div>
-              <div class="stat-value" id="stat-count">{len(tools)}</div>
+              <div class="stat-value">{len(tools)}</div>
               <div class="stat-footnote">Generated from local JSONL sources</div>
             </div>
             <div class="stat-card">
               <div class="stat-label">Categories</div>
-              <div class="stat-value" id="stat-categories">{len(categories)}</div>
+              <div class="stat-value">{len(categories)}</div>
               <div class="stat-footnote">Writing, coding, image, automation, and more</div>
             </div>
             <div class="stat-card stat-card-accent">
@@ -293,11 +324,23 @@ def render_page(tools: list[dict]) -> str:
           </div>
         </section>
 
+        <section class="controls" id="categories">
+          <div class="controls-top">
+            <div>
+              <h2>Categories</h2>
+              <p>Open a dedicated landing page for any category, or keep browsing all 500 tools below.</p>
+            </div>
+          </div>
+          <div class="category-pills">
+{category_pills}
+          </div>
+        </section>
+
         <section class="controls" id="directory">
           <div class="controls-top">
             <div>
               <h2>Tool directory</h2>
-              <p>Search by name, filter by category, and open tools directly.</p>
+              <p>Search by name, filter by category, and open dedicated tool pages.</p>
             </div>
             <div class="results-count" id="results-count">{len(tools)} matching tools</div>
           </div>
@@ -321,7 +364,7 @@ def render_page(tools: list[dict]) -> str:
             <h2>Featured picks</h2>
             <p>A rotating set from the dataset to make the first screen feel curated.</p>
           </div>
-          <div class="featured-grid" id="featured-grid">
+          <div class="featured-grid">
 {featured}
           </div>
         </section>
@@ -336,18 +379,175 @@ def render_page(tools: list[dict]) -> str:
           </div>
         </section>
       </main>
-    </div>
+    </div>"""
+    return page_frame(
+        title="AI Tools Gallery",
+        description="Browse 500 AI utilities from the local TAAFT dataset across writing, coding, research, image, automation, and more.",
+        stylesheet_href="./styles.css",
+        app_href="./app.js",
+        body=body,
+    )
 
-    <script src="./app.js" type="module"></script>
-  </body>
-</html>
-"""
+
+def render_category_page(category: str, tools: list[dict], categories: list[str]) -> str:
+    cards = "\n".join(render_card(tool, detail_prefix="..", category_prefix="..") for tool in tools)
+    category_pills = render_category_pills(categories, current=category, prefix="..")
+    body = f"""
+    <div class="page-shell">
+      {render_header("../index.html", "../index.html#directory")}
+      <main>
+        <section class="hero hero-simple">
+          <div class="hero-copy">
+            <div class="hero-badge">Category page</div>
+            <h1>{esc(category)} <span>AI tools</span></h1>
+            <p>
+              Browse {len(tools)} tools in the {esc(category)} category from the local TAAFT-derived dataset.
+            </p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="../index.html#directory">Back to all tools</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="controls">
+          <div class="controls-top">
+            <div>
+              <h2>All categories</h2>
+              <p>Move laterally across the directory through dedicated static category pages.</p>
+            </div>
+            <div class="results-count">{len(tools)} tools in {esc(category)}</div>
+          </div>
+          <div class="category-pills">
+{category_pills}
+          </div>
+        </section>
+
+        <section class="directory-section">
+          <div class="section-heading">
+            <h2>{esc(category)} directory</h2>
+            <p>Each tool has its own static detail page and external link.</p>
+          </div>
+          <div class="tool-grid">
+{cards}
+          </div>
+        </section>
+      </main>
+    </div>"""
+    return page_frame(
+        title=f"{category} AI Tools",
+        description=f"Browse {len(tools)} {category.lower()} AI tools from the local TAAFT dataset.",
+        stylesheet_href="../styles.css",
+        app_href=None,
+        body=body,
+    )
+
+
+def render_tool_page(tool: dict) -> str:
+    image_markup = ""
+    if tool["image_src"]:
+        image_markup = f"""
+            <div class="tool-media-card">
+              <img class="tool-media-image" src="{esc(tool['image_src'])}" alt="{esc(tool['name'])} preview" loading="lazy" />
+            </div>""".rstrip()
+    else:
+        image_markup = f"""
+            <div class="tool-media-card tool-media-fallback">
+              <div class="tool-media-placeholder">{esc(tool['name'][:1])}</div>
+              <p>No preview image was present in the local dataset for this tool.</p>
+            </div>""".rstrip()
+
+    source_row = ""
+    if tool["source_page"]:
+        source_row = f"""
+            <div class="detail-meta-row">
+              <span class="detail-meta-label">Source page</span>
+              <a class="detail-inline-link" href="{esc(tool['source_page'])}" target="_blank" rel="noreferrer">View original record</a>
+            </div>""".rstrip()
+
+    body = f"""
+    <div class="page-shell">
+      {render_header("../index.html", "../index.html#directory")}
+      <main>
+        <section class="tool-detail-hero">
+          <div class="tool-detail-copy">
+            <div class="detail-breadcrumbs">
+              <a href="../index.html">Home</a>
+              <span>/</span>
+              <a href="../categories/{tool['category_slug']}.html">{esc(tool['category'])}</a>
+              <span>/</span>
+              <span>{esc(tool['name'])}</span>
+            </div>
+            <div class="hero-badge">Tool page</div>
+            <h1>{esc(tool['name'])}</h1>
+            <p class="tool-detail-tagline">{esc(tool['tagline'] or tool['description'])}</p>
+            <div class="tool-detail-meta">
+              <div class="detail-meta-row">
+                <span class="detail-meta-label">Category</span>
+                <a class="detail-inline-link" href="../categories/{tool['category_slug']}.html">{esc(tool['category'])}</a>
+              </div>
+              <div class="detail-meta-row">
+                <span class="detail-meta-label">Pricing</span>
+                <span>{esc(tool['pricing'])}</span>
+              </div>
+              <div class="detail-meta-row">
+                <span class="detail-meta-label">Domain</span>
+                <span>{esc(tool['domain'] or 'Unknown domain')}</span>
+              </div>
+{source_row}
+            </div>
+            <div class="hero-actions">
+              <a class="button button-primary" href="{esc(tool['url'])}" target="_blank" rel="noreferrer">Visit tool</a>
+              <a class="button button-secondary" href="../categories/{tool['category_slug']}.html">More {esc(tool['category'])} tools</a>
+            </div>
+          </div>
+          <div class="tool-detail-media">
+{image_markup}
+          </div>
+        </section>
+
+        <section class="directory-section">
+          <div class="section-heading">
+            <h2>About this tool</h2>
+            <p>Generated as a dedicated static detail page from the local TAAFT-derived dataset.</p>
+          </div>
+          <div class="tool-detail-body">
+            <p>{esc(tool['description'])}</p>
+          </div>
+        </section>
+      </main>
+    </div>"""
+    return page_frame(
+        title=f"{tool['name']} • AI Tools Gallery",
+        description=tool["description"],
+        stylesheet_href="../styles.css",
+        app_href=None,
+        body=body,
+    )
+
+
+def write_pages(tools: list[dict]) -> None:
+    CATEGORIES_DIR.mkdir(parents=True, exist_ok=True)
+    TOOLS_DIR.mkdir(parents=True, exist_ok=True)
+
+    OUTPUT_HTML.write_text(render_index_page(tools))
+
+    categories = sorted({tool["category"] for tool in tools if tool["category"]})
+    for category in categories:
+        category_tools = [tool for tool in tools if tool["category"] == category]
+        (CATEGORIES_DIR / f"{slugify(category)}.html").write_text(render_category_page(category, category_tools, categories))
+
+    for tool in tools:
+        (TOOLS_DIR / f"{tool['slug']}.html").write_text(render_tool_page(tool))
 
 
 def main() -> None:
     tools = materialize_tools()
-    OUTPUT_HTML.write_text(render_page(tools))
-    print(f"Wrote {len(tools)} tools to {OUTPUT_HTML}")
+    write_pages(tools)
+    print(
+        f"Wrote {len(tools)} tools to {OUTPUT_HTML}, "
+        f"{len(list(CATEGORIES_DIR.glob('*.html')))} category pages, "
+        f"and {len(list(TOOLS_DIR.glob('*.html')))} tool pages"
+    )
 
 
 if __name__ == "__main__":

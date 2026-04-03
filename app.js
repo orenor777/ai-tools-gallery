@@ -4,6 +4,8 @@ const resultsCount = document.querySelector("#results-count");
 const cards = [...document.querySelectorAll("#tool-grid .tool-card")];
 
 function applyFilters() {
+  if (!searchInput || !categorySelect || !resultsCount || cards.length === 0) return;
+
   const query = searchInput.value.trim().toLowerCase();
   const category = categorySelect.value;
   let visibleCount = 0;
@@ -19,6 +21,8 @@ function applyFilters() {
   resultsCount.textContent = `${visibleCount} matching tools`;
 }
 
-searchInput.addEventListener("input", applyFilters);
-categorySelect.addEventListener("change", applyFilters);
-applyFilters();
+if (searchInput && categorySelect) {
+  searchInput.addEventListener("input", applyFilters);
+  categorySelect.addEventListener("change", applyFilters);
+  applyFilters();
+}
