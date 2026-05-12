@@ -7,6 +7,7 @@ The generator creates:
 - `index.html` with the full 500-tool directory
 - `categories/*.html` static category pages
 - `tools/*.html` static tool detail pages
+- [Nick Launches](https://nicklaunches.com/) - Launch platform for builders, AI startups, and SaaS founders to get discovered and earn a permanent dofollow backlink.
 
 ## Data source
 
